@@ -9,6 +9,8 @@
 3. 點「載入未封裝項目」，選這個資料夾
 4. 點外掛圖示 → 填入 Deepgram / DeepL 的 API Key → 到 YouTube 或 Twitch 分頁按「開始翻譯這個分頁」
 
+> **Edge 也能用**：Edge 為 Chromium 內核，程式碼無需修改。到 `edge://extensions` 開啟「開發人員模式」→「載入解壓縮」→ 選這個資料夾；API Key 需在 Edge 中重新填一次。長時間掛背景建議把分頁加入 Edge「永不讓這些網站進入睡眠」清單。
+
 ## 需要的帳號
 
 - Deepgram：https://console.deepgram.com 註冊，新帳號有 $200 免費額度，建 API Key
