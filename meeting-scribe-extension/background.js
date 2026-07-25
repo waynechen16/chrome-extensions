@@ -73,6 +73,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
         break;
       }
+      case 'SHOW_PANEL': {
+        // popup 要求重新顯示字幕面板：優先用擷取中的分頁，否則用目前分頁
+        let tabId = capturedTabId;
+        if (tabId == null) {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          tabId = tab?.id ?? null;
+        }
+        if (tabId == null) return sendResponse({ ok: false, error: '找不到分頁' });
+        await injectContentScript(tabId);
+        chrome.tabs.sendMessage(tabId, { type: 'SHOW_PANEL' }).catch(() => {});
+        sendResponse({ ok: true });
+        break;
+      }
       case 'GET_STATUS': {
         sendResponse({ capturing: capturedTabId != null, tabId: capturedTabId });
         break;

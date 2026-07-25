@@ -10,6 +10,8 @@
   button { width: 100%; margin-top: 12px; padding: 9px; border: 0; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
   #toggle.start { background: #2563eb; color: #fff; }
   #toggle.stop { background: #d9534f; color: #fff; }
+  #showPanel.ghost { background: #eef2f7; color: #334; font-size: 12px; font-weight: 500; margin-top: 6px; padding: 7px; }
+  #showPanel.ghost:hover { background: #e2e8f0; }
   #status { font-size: 11px; color: #888; margin-top: 8px; min-height: 14px; }
   details { margin-top: 10px; }
   summary { font-size: 12px; cursor: pointer; color: #333; }
@@ -19,6 +21,7 @@
 <body>
   <h1>Meeting Scribe 會議雙語筆記</h1>
   <button id="toggle" class="start">▶ 開始記錄這個分頁</button>
+  <button id="showPanel" class="ghost">重新顯示字幕面板</button>
   <div id="status"></div>
   <details open>
     <summary>設定</summary>

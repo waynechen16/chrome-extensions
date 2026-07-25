@@ -44,4 +44,9 @@ toggle.addEventListener('click', async () => {
   }
 });
 
+$('showPanel').addEventListener('click', async () => {
+  const res = await chrome.runtime.sendMessage({ type: 'SHOW_PANEL' });
+  status.textContent = res?.ok ? '已顯示字幕面板' : (res?.error || '無法顯示面板');
+});
+
 init();

@@ -78,8 +78,16 @@ function connectDeepgram() {
         sendCaption(seg.speaker, seg.text, zh, en, true);
       }
     } else {
-      const spk = alt.words?.[0]?.speaker;
-      sendCaption(spk ?? null, transcript, '', '', false);
+      // interim：依講者切段後只顯示「最後一段」＝目前正在說話的人。
+      // 換人時最新的字都掛在新講者身上，標籤立即切換；純本地運算，不增加延遲。
+      const words = alt.words || [];
+      if (words.length) {
+        const segs = splitBySpeaker(words, transcript);
+        const last = segs[segs.length - 1];
+        sendCaption(last.speaker, last.text, '', '', false);
+      } else {
+        sendCaption(null, transcript, '', '', false);
+      }
     }
   };
 
@@ -113,23 +121,19 @@ function joinTokens(tokens) {
 }
 
 // ---- 雙語翻譯 ----
-function cjkRatio(s) {
-  const chars = [...s.replace(/[\s\p{P}]/gu, '')];
-  if (!chars.length) return 0;
-  const cjk = chars.filter(c => /[㐀-鿿豈-﫿]/.test(c)).length;
-  return cjk / chars.length;
-}
-
 async function bilingual(text) {
   if (cfg.provider === 'gemini') return geminiBoth(text);
-  // DeepL：依主語言只翻缺的方向
-  const r = cjkRatio(text);
-  if (r > 0.6) {
-    return { zh: text, en: await deepl(text, 'EN-US') };
-  } else if (r < 0.1) {
-    return { zh: await deepl(text, 'ZH-HANT'), en: text };
-  }
-  const [zh, en] = await Promise.all([deepl(text, 'ZH-HANT'), deepl(text, 'EN-US')]);
+  // 規則：只要句中含英文（即使中英夾雜）就翻出「完整中文」；
+  //       只要句中含中文就翻出「完整英文」。
+  //       只有純中文句跳過中譯、純英文句跳過英譯（省 DeepL 額度）。
+  const hasCJK = /[\u3400-\u9fff\uf900-\ufaff]/.test(text);
+  const hasLatin = /[A-Za-z]/.test(text);
+  const needZh = !(hasCJK && !hasLatin);   // 非純中文 → 需要中譯
+  const needEn = !(hasLatin && !hasCJK);   // 非純英文 → 需要英譯
+  const [zh, en] = await Promise.all([
+    needZh ? deepl(text, 'ZH-HANT') : Promise.resolve(text),
+    needEn ? deepl(text, 'EN-US') : Promise.resolve(text)
+  ]);
   return { zh, en };
 }
 
@@ -161,7 +165,10 @@ async function geminiBoth(text) {
   const prompt =
     'You are a meeting interpreter. The utterance below may be Chinese, English, or mixed. ' +
     'Return ONLY JSON: {"zh":"Traditional Chinese version","en":"English version"}. ' +
-    'If the utterance is already in one of the target languages, copy it as-is for that language.\n\nUtterance: ' + text;
+    'If the utterance mixes languages, FULLY convert it into each target language — ' +
+    '"zh" must be pure Traditional Chinese with no English words left (except proper nouns/acronyms), ' +
+    'and "en" must be pure English. ' +
+    'If the utterance is already entirely in one target language, copy it as-is for that language.\n\nUtterance: ' + text;
   try {
     const res = await fetch(url, {
       method: 'POST',

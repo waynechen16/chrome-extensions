@@ -30,7 +30,8 @@
   const interimEl = box.querySelector('#ms-interim');
   const headerEl = box.querySelector('#ms-header');
   const spkPanel = box.querySelector('#ms-speaker-panel');
-  box.querySelector('#ms-close').addEventListener('click', () => box.remove());
+  // ✕ 只隱藏面板（記錄與擷取照常進行），可從 popup「重新顯示字幕面板」找回
+  box.querySelector('#ms-close').addEventListener('click', () => { box.style.display = 'none'; });
 
   // ---- 拖曳 ----
   let dragging = false, offX = 0, offY = 0;
@@ -135,13 +136,20 @@
     const srcDiv = document.createElement('div');
     srcDiv.className = 'ms-src';
     srcDiv.textContent = src;
-    const zhDiv = document.createElement('div');
-    zhDiv.className = 'ms-zh';
-    zhDiv.textContent = zh;
-    const enDiv = document.createElement('div');
-    enDiv.className = 'ms-en';
-    enDiv.textContent = en;
-    entry.append(head, srcDiv, zhDiv, enDiv);
+    entry.append(head, srcDiv);
+    // 譯文與原文相同時（純英文句的 EN、純中文句的 ZH）不重複顯示；匯出仍保留完整欄位
+    if (zh && zh.trim() !== src.trim()) {
+      const zhDiv = document.createElement('div');
+      zhDiv.className = 'ms-zh';
+      zhDiv.textContent = zh;
+      entry.append(zhDiv);
+    }
+    if (en && en.trim() !== src.trim()) {
+      const enDiv = document.createElement('div');
+      enDiv.className = 'ms-en';
+      enDiv.textContent = en;
+      entry.append(enDiv);
+    }
     historyEl.appendChild(entry);
     if (stick) historyEl.scrollTop = historyEl.scrollHeight;
   }
@@ -183,8 +191,38 @@
     download(`meeting-notes-${fileStamp()}.md`, md);
   });
 
+  // ---- 重新開啟面板 ----
+  function showResumeDialog() {
+    if (box.querySelector('#ms-resume')) return;
+    const dlg = document.createElement('div');
+    dlg.id = 'ms-resume';
+    const label = document.createElement('span');
+    label.textContent = `已有 ${records.length} 句記錄，要接續嗎？`;
+    const btnYes = document.createElement('button');
+    btnYes.className = 'ms-btn';
+    btnYes.textContent = '接續記錄';
+    const btnClear = document.createElement('button');
+    btnClear.className = 'ms-btn';
+    btnClear.textContent = '重新開始';
+    dlg.append(label, btnYes, btnClear);
+    box.insertBefore(dlg, historyEl);
+    btnYes.addEventListener('click', () => dlg.remove());
+    btnClear.addEventListener('click', () => {
+      records.length = 0;
+      historyEl.innerHTML = '';
+      interimEl.textContent = '';
+      dlg.remove();
+    });
+  }
+
   // ---- 接收 ----
   chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type === 'SHOW_PANEL') {
+      const wasHidden = box.style.display === 'none';
+      box.style.display = '';
+      if (wasHidden && records.length) showResumeDialog();
+      return;
+    }
     if (msg.type === 'CAPTION') {
       if (msg.isFinal) {
         interimEl.textContent = '';
