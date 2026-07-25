@@ -9,8 +9,6 @@
   window.__msForceReinject = false;
   window.__msInjected = true;
 
-  const STORE_KEY = 'msSpeakers::' + location.host + location.pathname;
-
   const box = document.createElement('div');
   box.id = 'ms-box';
   box.innerHTML = `
@@ -60,10 +58,11 @@
 
   // ---- 講者 ----
   const SPK_COLORS = ['#4f9cf9', '#f97066', '#4fd1a5', '#e3b341', '#b98af9', '#f472b6', '#67d4e4', '#a3b18a'];
+  // 講者名只存在「當次會議」的記憶體中，不做跨會議永久儲存——
+  // 因為 Deepgram 的講者編號每次連線都會重新分配，上次的 Speaker 0 ≠ 這次的 Speaker 0。
   let names = {};                    // { "0": "Wayne", ... }
   const seen = new Set();            // 出現過的 speaker 編號
-
-  chrome.storage.local.get(STORE_KEY).then((r) => { names = r[STORE_KEY] || {}; });
+  let sessionHref = null;            // 本次記錄 session 開始時的網址
 
   const letter = (spk) => spk == null ? '?' : String.fromCharCode(65 + (spk % 26));
   const nameOf = (spk) => spk == null ? '' : (names[spk] || `Speaker ${letter(spk)}`);
@@ -96,7 +95,6 @@
       input.addEventListener('input', () => {
         if (input.value.trim()) names[spk] = input.value.trim();
         else delete names[spk];
-        chrome.storage.local.set({ [STORE_KEY]: names });
         refreshChips();
       });
       row.append(label, input);
@@ -196,13 +194,23 @@
     download(`meeting-notes-${fileStamp()}.md`, md);
   });
 
-  // ---- 重新開啟面板 ----
-  function showResumeDialog() {
+  // ---- 重置 ----
+  function resetAll() {
+    records.length = 0;
+    historyEl.innerHTML = '';
+    interimEl.textContent = '';
+    names = {};
+    seen.clear();
+    if (!spkPanel.hidden) renderSpeakerPanel();
+  }
+
+  // ---- 重新開啟面板 / 同頁重啟詢問 ----
+  function showResumeDialog(text) {
     if (box.querySelector('#ms-resume')) return;
     const dlg = document.createElement('div');
     dlg.id = 'ms-resume';
     const label = document.createElement('span');
-    label.textContent = `已有 ${records.length} 句記錄，要接續嗎？`;
+    label.textContent = text || `已有 ${records.length} 句記錄，要接續嗎？`;
     const btnYes = document.createElement('button');
     btnYes.className = 'ms-btn';
     btnYes.textContent = '接續記錄';
@@ -213,9 +221,7 @@
     box.insertBefore(dlg, historyEl);
     btnYes.addEventListener('click', () => dlg.remove());
     btnClear.addEventListener('click', () => {
-      records.length = 0;
-      historyEl.innerHTML = '';
-      interimEl.textContent = '';
+      resetAll();       // 記錄與講者名一起清除
       dlg.remove();
     });
   }
@@ -230,6 +236,20 @@
       const wasHidden = box.style.display === 'none';
       box.style.display = '';
       if (wasHidden && records.length) showResumeDialog();
+      sendResponse({ ok: true });
+      return;
+    }
+    if (msg.type === 'SESSION_START') {
+      // 每次按「開始記錄」都會收到。講者名的生命週期以此為界：
+      box.style.display = '';
+      const href = location.href;
+      if (sessionHref && sessionHref !== href) {
+        resetAll();                     // 網址已改變 → 視為新會議，自動重置回 Speaker A/B/C
+      } else if (records.length) {
+        // 同一頁再次開始 → 可能是中場暫停也可能是新會議，讓用戶決定
+        showResumeDialog(`已有 ${records.length} 句記錄與講者名，要接續嗎？`);
+      }
+      sessionHref = href;
       sendResponse({ ok: true });
       return;
     }

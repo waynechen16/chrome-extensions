@@ -46,6 +46,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
         capturedTabId = tab.id;
         await ensureContentScript(tab.id);
+        // 通知 content script 新的記錄 session 開始（處理講者名重置/接續詢問）
+        await chrome.tabs.sendMessage(tab.id, { type: 'SESSION_START' }).catch(() => {});
         await ensureOffscreen();
         const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
         const s = await chrome.storage.local.get([
