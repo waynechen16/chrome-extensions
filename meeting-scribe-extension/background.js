@@ -13,12 +13,25 @@ async function ensureOffscreen() {
   });
 }
 
-async function injectContentScript(tabId) {
+// 確保 content script 活著。先 PING：有回應就不動它（保留記錄）；
+// 沒回應（從未注入，或外掛重載後舊 script 的 context 已失效、只剩殘留旗標）
+// 就設定強制接管旗標後重新注入。
+async function ensureContentScript(tabId) {
+  try {
+    const r = await chrome.tabs.sendMessage(tabId, { type: 'PING' });
+    if (r?.ok) return true;
+  } catch (e) { /* 無接收者 → 需要注入 */ }
   try {
     await chrome.scripting.insertCSS({ target: { tabId }, files: ['content.css'] });
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => { window.__msForceReinject = true; }
+    });
     await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+    return true;
   } catch (e) {
-    console.warn('inject failed (可能已注入):', e.message);
+    console.warn('inject failed:', e.message);
+    return false;
   }
 }
 
@@ -32,7 +45,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return sendResponse({ ok: false, error: '此頁面無法擷取（瀏覽器內部頁面）' });
         }
         capturedTabId = tab.id;
-        await injectContentScript(tab.id);
+        await ensureContentScript(tab.id);
         await ensureOffscreen();
         const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
         const s = await chrome.storage.local.get([
@@ -78,10 +91,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         let tabId = capturedTabId;
         if (tabId == null) {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tab && /^(chrome|edge|about|chrome-extension):/.test(tab.url || '')) {
+            return sendResponse({ ok: false, error: '此頁面無法顯示面板（瀏覽器內部頁面）' });
+          }
           tabId = tab?.id ?? null;
         }
         if (tabId == null) return sendResponse({ ok: false, error: '找不到分頁' });
-        await injectContentScript(tabId);
+        const ok = await ensureContentScript(tabId);
+        if (!ok) return sendResponse({ ok: false, error: '無法載入面板，請重新整理網頁後再試' });
         chrome.tabs.sendMessage(tabId, { type: 'SHOW_PANEL' }).catch(() => {});
         sendResponse({ ok: true });
         break;

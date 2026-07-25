@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Meeting Scribe 會議雙語筆記",
   "description": "會議即時逐字稿：多講者分離、中英夾雜辨識、繁中＋英文雙語譯文、會議記錄匯出",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "permissions": [
     "tabCapture",
     "offscreen",

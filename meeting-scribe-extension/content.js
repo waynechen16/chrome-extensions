@@ -1,7 +1,12 @@
 // content.js — Meeting Scribe 字幕面板
 // 講者 chip + 原文 + 繁中 + 英文；講者命名視窗；可拖曳；四種匯出
 (() => {
-  if (window.__msInjected) return;
+  // 注入防護：正常情況下已注入就跳出。
+  // 但外掛更新/重載後，舊 script 的 context 失效、旗標卻殘留，
+  // 此時 background 會先設 __msForceReinject 再注入 → 接管並移除殘留面板。
+  if (window.__msInjected && !window.__msForceReinject) return;
+  if (window.__msInjected) document.getElementById('ms-box')?.remove();
+  window.__msForceReinject = false;
   window.__msInjected = true;
 
   const STORE_KEY = 'msSpeakers::' + location.host + location.pathname;
@@ -216,11 +221,16 @@
   }
 
   // ---- 接收 ----
-  chrome.runtime.onMessage.addListener((msg) => {
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type === 'PING') {
+      sendResponse({ ok: true });
+      return;
+    }
     if (msg.type === 'SHOW_PANEL') {
       const wasHidden = box.style.display === 'none';
       box.style.display = '';
       if (wasHidden && records.length) showResumeDialog();
+      sendResponse({ ok: true });
       return;
     }
     if (msg.type === 'CAPTION') {
