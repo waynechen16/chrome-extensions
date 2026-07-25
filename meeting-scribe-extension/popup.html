@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { width: 300px; font-family: system-ui, "Noto Sans TC", sans-serif; margin: 0; padding: 14px; }
+  h1 { font-size: 15px; margin: 0 0 10px; }
+  label { display: block; font-size: 12px; color: #555; margin: 8px 0 2px; }
+  input, select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 12px; }
+  button { width: 100%; margin-top: 12px; padding: 9px; border: 0; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  #toggle.start { background: #2563eb; color: #fff; }
+  #toggle.stop { background: #d9534f; color: #fff; }
+  #status { font-size: 11px; color: #888; margin-top: 8px; min-height: 14px; }
+  details { margin-top: 10px; }
+  summary { font-size: 12px; cursor: pointer; color: #333; }
+  .hint { font-size: 11px; color: #999; margin-top: 2px; }
+</style>
+</head>
+<body>
+  <h1>Meeting Scribe 會議雙語筆記</h1>
+  <button id="toggle" class="start">▶ 開始記錄這個分頁</button>
+  <div id="status"></div>
+  <details open>
+    <summary>設定</summary>
+    <label>Deepgram API Key</label>
+    <input id="deepgramKey" type="password" placeholder="dg_...">
+    <label>翻譯引擎</label>
+    <select id="provider">
+      <option value="deepl">DeepL</option>
+      <option value="gemini">Gemini</option>
+    </select>
+    <label>DeepL API Key</label>
+    <input id="deeplKey" type="password" placeholder="xxxx:fx（Free 方案結尾是 :fx）">
+    <label>Gemini API Key</label>
+    <input id="geminiKey" type="password" placeholder="AIza...（選用 Gemini 時必填）">
+    <div class="hint">辨識固定為中英夾雜（multi）＋講者分離，譯文同時輸出繁中與英文。</div>
+  </details>
+  <script src="popup.js"></script>
+</body>
+</html>

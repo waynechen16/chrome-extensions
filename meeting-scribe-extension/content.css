@@ -1,0 +1,115 @@
+#ms-box {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(780px, 92vw);
+  z-index: 2147483647;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  border-radius: 10px;
+  font-family: system-ui, "Noto Sans TC", sans-serif;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  backdrop-filter: blur(4px);
+}
+
+#ms-header {
+  font-size: 11px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #bbb;
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: grab;
+  touch-action: none;
+}
+#ms-header:active { cursor: grabbing; }
+#ms-buttons { display: flex; gap: 5px; }
+.ms-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 0;
+  color: #ddd;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ms-btn:hover { background: rgba(255, 255, 255, 0.3); color: #fff; }
+
+/* 講者命名面板 */
+#ms-speaker-panel {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  color: #ccc;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ms-spk-row { display: flex; align-items: center; gap: 8px; }
+.ms-spk-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 5px;
+  color: #fff;
+  font-size: 12px;
+  padding: 3px 8px;
+  font-family: inherit;
+}
+.ms-spk-input:focus { outline: none; border-color: rgba(255, 255, 255, 0.55); }
+
+/* 歷史區 */
+#ms-history {
+  max-height: 168px;
+  min-height: 64px;
+  overflow-y: scroll;
+  padding: 6px 12px;
+  scrollbar-gutter: stable;
+}
+#ms-history::-webkit-scrollbar { width: 8px; }
+#ms-history::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.08); border-radius: 4px; }
+#ms-history::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.35); border-radius: 4px; }
+#ms-history::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.55); }
+
+.ms-entry { margin-bottom: 10px; }
+.ms-entry-head { margin-bottom: 2px; }
+.ms-chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #101010;
+  padding: 1px 8px;
+  border-radius: 9px;
+  letter-spacing: 0.02em;
+}
+.ms-src {
+  font-size: 13px;
+  color: #d8d8d8;
+  line-height: 1.45;
+}
+.ms-zh {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.5;
+}
+.ms-en {
+  font-size: 13px;
+  color: #bfd7ff;
+  line-height: 1.45;
+}
+
+/* interim */
+#ms-interim {
+  font-size: 13px;
+  color: #cfcfcf;
+  font-style: italic;
+  padding: 2px 12px 8px;
+  min-height: 20px;
+  line-height: 1.4;
+}
