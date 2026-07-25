@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { width: 300px; font-family: system-ui, "Noto Sans TC", sans-serif; margin: 0; padding: 14px; }
+  h1 { font-size: 15px; margin: 0 0 10px; }
+  label { display: block; font-size: 12px; color: #555; margin: 8px 0 2px; }
+  input, select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 12px; }
+  button { width: 100%; margin-top: 12px; padding: 9px; border: 0; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  #toggle.start { background: #10a37f; color: #fff; }
+  #toggle.stop { background: #d9534f; color: #fff; }
+  #status { font-size: 11px; color: #888; margin-top: 8px; min-height: 14px; }
+  details { margin-top: 10px; }
+  summary { font-size: 12px; cursor: pointer; color: #333; }
+</style>
+</head>
+<body>
+  <h1>即時翻譯字幕</h1>
+  <button id="toggle" class="start">▶ 開始翻譯這個分頁</button>
+  <div id="status"></div>
+  <details open>
+    <summary>設定</summary>
+    <label>Deepgram API Key</label>
+    <input id="deepgramKey" type="password" placeholder="dg_...">
+    <label>DeepL API Key</label>
+    <input id="deeplKey" type="password" placeholder="xxxx:fx（Free 方案結尾是 :fx）">
+    <label>來源語言</label>
+    <select id="sourceLang">
+      <option value="en">英文</option>
+      <option value="ja">日文</option>
+      <option value="multi">自動（多語言）</option>
+    </select>
+    <label>目標語言</label>
+    <select id="targetLang">
+      <option value="ZH-HANT">繁體中文</option>
+      <option value="ZH-HANS">簡體中文</option>
+      <option value="EN-US">英文</option>
+      <option value="JA">日文</option>
+    </select>
+  </details>
+  <script src="popup.js"></script>
+</body>
+</html>

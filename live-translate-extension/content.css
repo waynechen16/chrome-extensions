@@ -1,0 +1,78 @@
+#ltc-caption-box {
+  position: fixed;               /* 固定位置，不浮動、不可拖曳 */
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(760px, 90vw);
+  z-index: 2147483647;
+  background: rgba(0, 0, 0, 0.45);   /* 約 50% 透明 */
+  color: #fff;
+  border-radius: 10px;
+  font-family: system-ui, "Noto Sans TC", sans-serif;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  backdrop-filter: blur(4px);
+}
+
+#ltc-header {
+  font-size: 11px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #bbb;
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: grab;
+  touch-action: none;
+}
+#ltc-header:active { cursor: grabbing; }
+#ltc-buttons { display: flex; gap: 6px; }
+.ltc-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 0;
+  color: #ddd;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ltc-btn:hover { background: rgba(255, 255, 255, 0.3); color: #fff; }
+
+/* 歷史區：至少兩組原文+譯文的高度，右側顯示捲軸 */
+#ltc-history {
+  max-height: 106px;             /* 約兩組原文+譯文 */
+  min-height: 58px;
+  overflow-y: scroll;            /* 常駐捲軸 */
+  padding: 6px 12px;
+  scrollbar-gutter: stable;
+}
+#ltc-history::-webkit-scrollbar { width: 8px; }
+#ltc-history::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.08); border-radius: 4px; }
+#ltc-history::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.35); border-radius: 4px; }
+#ltc-history::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.55); }
+
+.ltc-entry { margin-bottom: 8px; }
+/* 中英文相同字級 */
+.ltc-en {
+  font-size: 13px;
+  color: #d8d8d8;
+  line-height: 1.45;
+}
+.ltc-zh {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.5;
+}
+
+/* interim（辨識中）原文：灰色斜體，固定在面板底部 */
+#ltc-interim {
+  font-size: 13px;
+  color: #cfcfcf;
+  font-style: italic;
+  padding: 2px 12px 8px;
+  min-height: 20px;
+  line-height: 1.4;
+}
