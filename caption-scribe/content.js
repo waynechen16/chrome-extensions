@@ -32,8 +32,8 @@
     <div id="cs-header">
       <span id="cs-title"></span>
       <span id="cs-buttons">
-        <button class="cs-btn" id="cs-save-src" title="下載原文逐字稿">原文</button>
         <span id="cs-rec-indicator" class="cs-rec-dot" hidden></span>
+        <button class="cs-btn" id="cs-save-src" title="下載原文逐字稿">原文</button>
         <button class="cs-btn" id="cs-save-zh" title="下載中文">中文</button>
         <button class="cs-btn" id="cs-save-md" title="下載 Markdown 會議記錄">MD</button>
         <button class="cs-btn" id="cs-save-audio" title="下載錄音 (MP3)" hidden>音檔</button>

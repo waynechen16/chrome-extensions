@@ -116,9 +116,10 @@
   line-height: 1;
 }
 
-/* 錄制指示燈：紅色呼吸燈 */
+/* 錄製指示燈：紅色呼吸燈（位於「原文」按鈕左側，錄製中才顯示） */
 .cs-rec-dot {
   display: inline-block;
+  align-self: center;   /* 在按鈕列中垂直置中 */
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -126,6 +127,8 @@
   margin: 0 4px;
   animation: cs-breathing 1.5s infinite;
 }
+/* 上面的 display 會蓋過瀏覽器對 [hidden] 的預設 display:none，需明確補上 */
+.cs-rec-dot[hidden] { display: none; }
 
 @keyframes cs-breathing {
   0%, 100% {
