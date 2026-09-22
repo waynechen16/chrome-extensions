@@ -48,6 +48,32 @@
   `;
   document.documentElement.appendChild(box);
 
+  // 浮動最小化 icon（機器人頭）
+  const floatingIcon = document.createElement('div');
+  floatingIcon.id = 'cs-floating-icon';
+  floatingIcon.title = '按我回到完整面板';
+  floatingIcon.innerHTML = `
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <!-- 頭 -->
+      <rect x="6" y="8" width="28" height="24" rx="4" fill="#4f9cf9" stroke="#2563eb" stroke-width="1.5"/>
+      <!-- 左眼 -->
+      <circle cx="14" cy="16" r="3" fill="#fff"/>
+      <circle cx="14" cy="16" r="1.5" fill="#2563eb" class="cs-eye-pupil"/>
+      <!-- 右眼 -->
+      <circle cx="26" cy="16" r="3" fill="#fff"/>
+      <circle cx="26" cy="16" r="1.5" fill="#2563eb" class="cs-eye-pupil"/>
+      <!-- 微笑 -->
+      <path d="M 16 22 Q 20 24 24 22" stroke="#2563eb" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <!-- 天線 -->
+      <circle cx="10" cy="6" r="2" fill="#f97066"/>
+      <circle cx="30" cy="6" r="2" fill="#f97066"/>
+      <line x1="10" y1="6" x2="10" y2="2" stroke="#f97066" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="30" y1="6" x2="30" y2="2" stroke="#f97066" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  `;
+  floatingIcon.style.display = 'none';
+  document.documentElement.appendChild(floatingIcon);
+
   const historyEl = box.querySelector('#cs-history');
   const interimEl = box.querySelector('#cs-interim');
   const statusEl = box.querySelector('#cs-status');
@@ -57,15 +83,34 @@
   const recIndicator = box.querySelector('#cs-rec-indicator');
 
   let isMinimized = false;
+  let hasContent = false;
   const contentEl = [historyEl, interimEl, statusEl];
 
-  // 最小化/最大化按鈕
+  // 更新浮動 icon 的動態狀態
+  function updateFloatingIcon() {
+    hasContent = entries.length > 0;
+    floatingIcon.classList.toggle('cs-icon-active', hasContent);
+  }
+
+  // 最小化/最大化按鈕 —— 改為隱藏整個面板，顯示浮動 icon
   const minimizeBtn = box.querySelector('#cs-minimize');
   minimizeBtn.addEventListener('click', () => {
     isMinimized = !isMinimized;
-    for (const el of contentEl) el.style.display = isMinimized ? 'none' : '';
-    minimizeBtn.textContent = isMinimized ? '▲' : '−';
-    minimizeBtn.title = isMinimized ? '最大化' : '最小化';
+    if (isMinimized) {
+      box.style.display = 'none';
+      floatingIcon.style.display = '';
+      updateFloatingIcon();
+    } else {
+      box.style.display = '';
+      floatingIcon.style.display = 'none';
+    }
+  });
+
+  // 浮動 icon 點擊 —— 展開面板
+  floatingIcon.addEventListener('click', () => {
+    isMinimized = false;
+    box.style.display = '';
+    floatingIcon.style.display = 'none';
   });
 
   box.querySelector('#cs-close').addEventListener('click', () => { box.style.display = 'none'; });
@@ -519,6 +564,7 @@
         nodeMap.set(it.node, e.id);
         dirtyStore = true;
         renderEntry(e);
+        updateFloatingIcon();  // 有新內容時更新浮動 icon
       }
     }
   }
@@ -659,6 +705,7 @@
     storeSnapshot();
     chrome.runtime.sendMessage({ type: 'AUDIO_RESET' }).catch(() => {});
     setStatus('');
+    updateFloatingIcon();  // 清除時更新浮動 icon
   }
 
   // ================= 匯出（移植自參考版） =================
@@ -840,7 +887,14 @@
         sendResponse({ ok: true, capturing: false });
         break;
       case 'showPanel':
+        // 顯示面板、重置位置、隱藏浮動 icon、取消最小化
         box.style.display = '';
+        box.style.left = '50%';
+        box.style.top = 'initial';
+        box.style.bottom = '40px';
+        box.style.transform = 'translateX(-50%)';
+        floatingIcon.style.display = 'none';
+        isMinimized = false;
         sendResponse({ ok: true });
         break;
       case 'pick':
