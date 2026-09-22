@@ -140,3 +140,66 @@
     box-shadow: 0 0 0 4px rgba(255, 77, 79, 0);
   }
 }
+
+/* 浮動最小化 icon（機器人頭） */
+#cs-floating-icon {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 2147483646;  /* 略低於主面板 */
+  width: 56px;
+  height: 56px;
+  cursor: pointer;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.25));
+  transition: transform 0.2s ease;
+  background: #f8f9fa;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#cs-floating-icon:hover {
+  transform: scale(1.1);
+}
+
+#cs-floating-icon:active {
+  transform: scale(0.95);
+}
+
+/* 靜態狀態 */
+#cs-floating-icon svg {
+  width: 100%;
+  height: 100%;
+  filter: opacity(0.7);
+  transition: filter 0.3s ease;
+}
+
+/* 動態狀態（有文字時） */
+#cs-floating-icon.cs-icon-active svg {
+  filter: opacity(1) drop-shadow(0 0 6px rgba(79, 156, 249, 0.6));
+  animation: cs-icon-pulse 2s infinite;
+}
+
+/* 眼睛瞳孔 —— 有文字時閃爍 */
+#cs-floating-icon.cs-icon-active .cs-eye-pupil {
+  animation: cs-eye-blink 1.5s infinite;
+}
+
+@keyframes cs-icon-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes cs-eye-blink {
+  0%, 49%, 51%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
