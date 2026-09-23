@@ -48,27 +48,65 @@
   `;
   document.documentElement.appendChild(box);
 
-  // 浮動最小化 icon（機器人頭）
+  // 浮動最小化 icon（機器人頭 - 記錄君）
   const floatingIcon = document.createElement('div');
   floatingIcon.id = 'cs-floating-icon';
   floatingIcon.title = '按我回到完整面板';
   floatingIcon.innerHTML = `
-    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-      <!-- 頭 -->
-      <rect x="6" y="8" width="28" height="24" rx="4" fill="#4f9cf9" stroke="#2563eb" stroke-width="1.5"/>
-      <!-- 左眼 -->
-      <circle cx="14" cy="16" r="3" fill="#fff"/>
-      <circle cx="14" cy="16" r="1.5" fill="#2563eb" class="cs-eye-pupil"/>
-      <!-- 右眼 -->
-      <circle cx="26" cy="16" r="3" fill="#fff"/>
-      <circle cx="26" cy="16" r="1.5" fill="#2563eb" class="cs-eye-pupil"/>
-      <!-- 微笑 -->
-      <path d="M 16 22 Q 20 24 24 22" stroke="#2563eb" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-      <!-- 天線 -->
-      <circle cx="10" cy="6" r="2" fill="#f97066"/>
-      <circle cx="30" cy="6" r="2" fill="#f97066"/>
-      <line x1="10" y1="6" x2="10" y2="2" stroke="#f97066" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="30" y1="6" x2="30" y2="2" stroke="#f97066" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- 記錄中狀態 (eyes open, working) -->
+    <svg class="cs-icon-state cs-icon-recording" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <!-- 圓形頭 -->
+      <circle cx="20" cy="20" r="16" fill="#5eb3f6" stroke="#2563eb" stroke-width="1.5"/>
+      <!-- 左眼白 -->
+      <circle cx="13" cy="16" r="4.5" fill="#fff"/>
+      <!-- 左眼瞳孔 -->
+      <circle cx="13" cy="16" r="2.5" fill="#1e40af" class="cs-eye-pupil-recording"/>
+      <!-- 左眼反光 (sparkle) -->
+      <circle cx="14" cy="14" r="1" fill="#fff" class="cs-eye-shine"/>
+      <!-- 右眼白 -->
+      <circle cx="27" cy="16" r="4.5" fill="#fff"/>
+      <!-- 右眼瞳孔 -->
+      <circle cx="27" cy="16" r="2.5" fill="#1e40af" class="cs-eye-pupil-recording"/>
+      <!-- 右眼反光 (sparkle) -->
+      <circle cx="28" cy="14" r="1" fill="#fff" class="cs-eye-shine"/>
+      <!-- 左腮紅 -->
+      <circle cx="5" cy="22" r="3" fill="#f87171" opacity="0.6"/>
+      <!-- 右腮紅 -->
+      <circle cx="35" cy="22" r="3" fill="#f87171" opacity="0.6"/>
+      <!-- 開心的嘴 (大笑弧) -->
+      <path d="M 14 26 Q 20 30 26 26" stroke="#1e40af" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <!-- 短天線（左） -->
+      <rect x="10" y="3" width="1.5" height="4" fill="#f97066" rx="0.75"/>
+      <circle cx="10.75" cy="2.5" r="1.2" fill="#f97066"/>
+      <!-- 短天線（右） -->
+      <rect x="28.5" y="3" width="1.5" height="4" fill="#f97066" rx="0.75"/>
+      <circle cx="29.25" cy="2.5" r="1.2" fill="#f97066"/>
+    </svg>
+
+    <!-- 睡眠中狀態 (eyes closed, sleeping) -->
+    <svg class="cs-icon-state cs-icon-sleeping" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <!-- 圓形頭 -->
+      <circle cx="20" cy="20" r="16" fill="#4f9cf9" stroke="#2563eb" stroke-width="1.5"/>
+      <!-- 左眼閉合（~~） -->
+      <path d="M 9 16 Q 13 18 17 16" stroke="#2563eb" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <!-- 右眼閉合（~~） -->
+      <path d="M 23 16 Q 27 18 31 16" stroke="#2563eb" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <!-- 左腮紅 -->
+      <circle cx="5" cy="22" r="2.5" fill="#f87171" opacity="0.5"/>
+      <!-- 右腮紅 -->
+      <circle cx="35" cy="22" r="2.5" fill="#f87171" opacity="0.5"/>
+      <!-- 平靜的嘴 (小弧或一字) -->
+      <path d="M 15 27 Q 20 28 25 27" stroke="#2563eb" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <!-- 短天線（左） -->
+      <rect x="10" y="3" width="1.5" height="4" fill="#f97066" rx="0.75"/>
+      <circle cx="10.75" cy="2.5" r="1.2" fill="#f97066"/>
+      <!-- 短天線（右） -->
+      <rect x="28.5" y="3" width="1.5" height="4" fill="#f97066" rx="0.75"/>
+      <circle cx="29.25" cy="2.5" r="1.2" fill="#f97066"/>
+      <!-- 睡眠Z（上） -->
+      <text x="34" y="8" font-size="8" fill="#4f9cf9" opacity="0.5" class="cs-sleep-z">Z</text>
+      <!-- 睡眠Z（下） -->
+      <text x="36" y="14" font-size="6" fill="#4f9cf9" opacity="0.4" class="cs-sleep-z">z</text>
     </svg>
   `;
   floatingIcon.style.display = 'none';
@@ -90,6 +128,19 @@
   function updateFloatingIcon() {
     hasContent = entries.length > 0;
     floatingIcon.classList.toggle('cs-icon-active', hasContent);
+    // 根據錄製狀態切換 icon 外觀（記錄中 vs 睡眠中）
+    updateIconState();
+  }
+
+  // 根據 capturing 狀態更新 icon 外觀
+  function updateIconState() {
+    if (capturing) {
+      floatingIcon.classList.add('cs-recording-active');
+      floatingIcon.classList.remove('cs-sleeping');
+    } else {
+      floatingIcon.classList.remove('cs-recording-active');
+      floatingIcon.classList.add('cs-sleeping');
+    }
   }
 
   // 最小化/最大化按鈕 —— 改為隱藏整個面板，顯示浮動 icon
@@ -672,6 +723,7 @@
     scanTimer = setInterval(() => { if (capturing) scan(); }, 700);
     finalTimer = setInterval(finalizeCheck, CHECK_MS);
     storeTimer = setInterval(storeSnapshot, 800);
+    updateIconState();
     scan();
     setStatus(pickedSelector ? '使用手動框選的字幕區域' : '');
   }
@@ -684,6 +736,7 @@
     clearInterval(scanTimer);
     clearInterval(finalTimer);
     clearInterval(storeTimer);
+    updateIconState();
     // 停止時把尚未定稿的條目全部立即定稿（補送翻譯或直接完成）
     for (const e of entries) {
       if (e.state !== 'done') { e.lastChange = 0; e.lastReq = 0; }

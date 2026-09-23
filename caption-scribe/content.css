@@ -141,7 +141,7 @@
   }
 }
 
-/* 浮動最小化 icon（機器人頭） */
+/* 浮動最小化 icon（記錄君 - 機器人頭） */
 #cs-floating-icon {
   position: fixed;
   bottom: 20px;
@@ -151,7 +151,7 @@
   height: 56px;
   cursor: pointer;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.25));
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, filter 0.3s ease;
   background: #f8f9fa;
   border-radius: 50%;
   display: flex;
@@ -167,39 +167,105 @@
   transform: scale(0.95);
 }
 
-/* 靜態狀態 */
+/* SVG 容器層 */
 #cs-floating-icon svg {
   width: 100%;
   height: 100%;
-  filter: opacity(0.7);
-  transition: filter 0.3s ease;
+  position: absolute;
 }
 
-/* 動態狀態（有文字時） */
-#cs-floating-icon.cs-icon-active svg {
-  filter: opacity(1) drop-shadow(0 0 6px rgba(79, 156, 249, 0.6));
-  animation: cs-icon-pulse 2s infinite;
+.cs-icon-state {
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.3s ease;
 }
 
-/* 眼睛瞳孔 —— 有文字時閃爍 */
-#cs-floating-icon.cs-icon-active .cs-eye-pupil {
-  animation: cs-eye-blink 1.5s infinite;
+/* 默認：睡眠狀態（不可見） */
+.cs-icon-recording {
+  opacity: 0;
+  pointer-events: none;
 }
 
-@keyframes cs-icon-pulse {
+.cs-icon-sleeping {
+  opacity: 1;
+}
+
+/* 記錄中：顯示記錄 icon */
+#cs-floating-icon.cs-recording-active .cs-icon-recording {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#cs-floating-icon.cs-recording-active .cs-icon-sleeping {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 記錄中有文字時的動畫效果 */
+#cs-floating-icon.cs-icon-active.cs-recording-active {
+  filter: drop-shadow(0 0 8px rgba(79, 156, 249, 0.8));
+}
+
+#cs-floating-icon.cs-icon-active.cs-recording-active .cs-icon-recording {
+  animation: cs-recording-pulse 2s infinite;
+}
+
+/* 記錄中眼睛的閃爍效果 */
+#cs-floating-icon.cs-recording-active .cs-eye-pupil-recording {
+  animation: cs-pupil-shine 1.5s infinite;
+}
+
+#cs-floating-icon.cs-recording-active .cs-eye-shine {
+  animation: cs-shine-pulse 1s infinite;
+}
+
+/* 睡眠狀態的 Z 飄浮動畫 */
+#cs-floating-icon.cs-sleeping .cs-sleep-z {
+  animation: cs-sleep-float 2s infinite;
+}
+
+/* ===== 動畫定義 ===== */
+
+/* 記錄中的脈動 */
+@keyframes cs-recording-pulse {
   0%, 100% {
     transform: scale(1);
   }
   50% {
-    transform: scale(1.05);
+    transform: scale(1.08);
   }
 }
 
-@keyframes cs-eye-blink {
-  0%, 49%, 51%, 100% {
+/* 瞳孔閃爍 */
+@keyframes cs-pupil-shine {
+  0%, 50%, 100% {
     opacity: 1;
   }
+  25%, 75% {
+    opacity: 0.6;
+  }
+}
+
+/* 眼睛反光閃耀 */
+@keyframes cs-shine-pulse {
+  0%, 100% {
+    opacity: 1;
+    r: 1px;
+  }
   50% {
-    opacity: 0;
+    opacity: 0.3;
+    r: 1.5px;
+  }
+}
+
+/* 睡眠 Z 飄浮 */
+@keyframes cs-sleep-float {
+  0%, 100% {
+    opacity: 0.4;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateY(-2px);
   }
 }
