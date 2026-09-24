@@ -4,7 +4,23 @@
 // 面板 UI / 匯出 / 錄音下載移植自 meeting-scribe
 (() => {
   if (window.__csInjected && !window.__csForceReinject) return;
-  if (window.__csInjected) document.getElementById('cs-box')?.remove();
+  // 如果正在初始化中，等待完成後再執行
+  if (window.__csInitializing) return;
+  window.__csInitializing = true;
+
+  // 清理舊的 DOM 元素（防止多個面板）
+  const oldBox = document.getElementById('cs-box');
+  const oldIcon = document.getElementById('cs-floating-icon');
+  if (oldBox) oldBox.remove();
+  if (oldIcon) oldIcon.remove();
+
+  // 清理舊的全局狀態
+  if (window.__csInjected) {
+    if (window.__csObserver) window.__csObserver.disconnect();
+    if (window.__csScanTimer) clearInterval(window.__csScanTimer);
+    if (window.__csFinalTimer) clearInterval(window.__csFinalTimer);
+    if (window.__csStoreTimer) clearInterval(window.__csStoreTimer);
+  }
   window.__csForceReinject = false;
   window.__csInjected = true;
 
@@ -1000,4 +1016,8 @@
     }
     return true;
   });
+
+
+  // 初始化完成，標記為已完成
+  window.__csInitializing = false;
 })();
