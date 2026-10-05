@@ -725,7 +725,7 @@
   function queueScan() {
     if (scanQueued || !capturing) return;
     scanQueued = true;
-    setTimeout(() => { scanQueued = false; if (capturing) scan(); }, 400);
+    setTimeout(() => { scanQueued = false; if (capturing) scan(); }, 800);
   }
 
   function startCapture() {
@@ -736,9 +736,9 @@
     titleEl.textContent = TITLE + (translateOn ? ' 記錄中…' : ' 記錄中（翻譯關閉）');
     observer = new MutationObserver(queueScan);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-    scanTimer = setInterval(() => { if (capturing) scan(); }, 1000);
-    finalTimer = setInterval(finalizeCheck, 800);
-    storeTimer = setInterval(storeSnapshot, 1200);
+    scanTimer = setInterval(() => { if (capturing) scan(); }, 1500);
+    finalTimer = setInterval(finalizeCheck, 1200);
+    storeTimer = setInterval(storeSnapshot, 2000);
     updateIconState();
     scan();
     setStatus(pickedSelector ? '使用手動框選的字幕區域' : '');
