@@ -923,7 +923,8 @@
       renderEntry(e);
     }
     nextId = entries.reduce((m, e) => Math.max(m, e.id || 0), 0) + 1;
-    if (res.cs_capturing) startCapture();
+    // 预设为关闭：用户需要手动点击开始按钮才启动
+    // if (res.cs_capturing) startCapture();
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
