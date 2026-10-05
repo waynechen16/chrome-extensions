@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Caption Scribe 字幕同步翻譯（DOM 版）",
   "description": "擷取 Teams / Webex / Google Meet 等網頁即時字幕（DOM capture），每句同步翻譯出繁中＋英文，面板即時顯示並可匯出逐字稿；可選錄音（分頁聲音＋麥克風）下載 MP3。",
-  "version": "1.7.4",
+  "version": "1.7.5",
   "permissions": [
     "storage",
     "scripting",
@@ -23,24 +23,6 @@
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://teams.microsoft.com/*",
-        "https://teams.live.com/*",
-        "https://*.webex.com/*",
-        "https://meet.google.com/*"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "css": [
-        "content.css"
-      ],
-      "run_at": "document_idle",
-      "all_frames": true
-    }
-  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Caption Scribe",
