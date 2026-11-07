@@ -269,3 +269,59 @@
     transform: translateY(-2px);
   }
 }
+
+/* ===== 隱密模式（v1.8.0 預設）：貼邊小標籤 =====
+   平常只在畫面右緣露出 8px 灰色半透明細條，滑鼠移過去才滑出；
+   不使用動畫，只留一個極小狀態點（擷取中淡紅、未擷取灰色）。
+   popup 可切回機器人頭（cs_iconStyle = 'robot'）。 */
+.cs-stealth-dot { display: none; }
+
+#cs-floating-icon.cs-stealth {
+  top: auto;
+  bottom: 96px;
+  right: -14px;            /* 22px 寬，只露出 8px */
+  width: 22px;
+  height: 44px;
+  border-radius: 6px 0 0 6px;
+  background: rgba(120, 120, 120, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-right: 0;
+  box-sizing: border-box;
+  filter: none !important;
+  transform: none !important;
+  transition: right 0.15s ease, background-color 0.15s ease;
+}
+#cs-floating-icon.cs-stealth:hover {
+  right: 0;
+  background: rgba(70, 70, 70, 0.8);
+}
+#cs-floating-icon.cs-stealth svg { display: none; }
+
+#cs-floating-icon.cs-stealth .cs-stealth-dot {
+  display: block;
+  position: absolute;
+  left: 2px;               /* 落在露出的 8px 內 */
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: rgba(190, 190, 190, 0.75);
+}
+#cs-floating-icon.cs-stealth.cs-recording-active .cs-stealth-dot {
+  background: rgba(230, 95, 95, 0.9);
+}
+
+/* 滑出後顯示「‹」提示可點開面板 */
+#cs-floating-icon.cs-stealth::after {
+  content: '‹';
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-55%);
+  font: 600 14px/1 system-ui, sans-serif;
+  color: #eee;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+#cs-floating-icon.cs-stealth:hover::after { opacity: 1; }

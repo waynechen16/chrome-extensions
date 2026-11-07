@@ -124,9 +124,18 @@
       <!-- 睡眠Z（下） -->
       <text x="36" y="14" font-size="6" fill="#4f9cf9" opacity="0.4" class="cs-sleep-z">z</text>
     </svg>
+
+    <!-- 隱密模式：貼邊小標籤上的狀態點（擷取中淡紅、未擷取灰色） -->
+    <span class="cs-stealth-dot"></span>
   `;
   floatingIcon.style.display = 'none';
   document.documentElement.appendChild(floatingIcon);
+
+  // 最小化 icon 外觀：'stealth'（預設，貼邊小標籤）或 'robot'（機器人頭）
+  function applyIconStyle(style) {
+    floatingIcon.classList.toggle('cs-stealth', style !== 'robot');
+  }
+  applyIconStyle('stealth');
 
   const historyEl = box.querySelector('#cs-history');
   const interimEl = box.querySelector('#cs-interim');
@@ -732,6 +741,9 @@
     if (capturing) return;
     capturing = true;
     box.style.display = '';
+    // 開始擷取會叫出面板 → 同步收起最小化 icon，避免面板與 icon 同時出現、最小化按鈕狀態錯亂
+    isMinimized = false;
+    floatingIcon.style.display = 'none';
     recIndicator.hidden = false;
     titleEl.textContent = TITLE + (translateOn ? ' 記錄中…' : ' 記錄中（翻譯關閉）');
     observer = new MutationObserver(queueScan);
@@ -909,8 +921,9 @@
     audioBtn.hidden = !on;
   }
 
-  chrome.storage.local.get(['cs_entries', 'cs_capturing', 'cs_translate', 'cs_recActive', SEL_KEY], (res) => {
+  chrome.storage.local.get(['cs_entries', 'cs_capturing', 'cs_translate', 'cs_recActive', 'cs_iconStyle', SEL_KEY], (res) => {
     pickedSelector = res[SEL_KEY] || null;
+    applyIconStyle(res.cs_iconStyle);
     translateOn = res.cs_translate !== false;   // 預設開
     applyRecActive(!!res.cs_recActive);
     const saved = Array.isArray(res.cs_entries) ? res.cs_entries : [];
@@ -934,6 +947,7 @@
       if (capturing) titleEl.textContent = TITLE + (translateOn ? ' 記錄中…' : ' 記錄中（翻譯關閉）');
     }
     if (changes.cs_recActive) applyRecActive(!!changes.cs_recActive.newValue);
+    if (changes.cs_iconStyle) applyIconStyle(changes.cs_iconStyle.newValue);
   });
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

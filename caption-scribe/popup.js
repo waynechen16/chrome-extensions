@@ -15,12 +15,14 @@ async function saveSettings() {
   data.recEnabled = $('recEnabled').checked;
   data.micEnabled = $('micEnabled').checked;
   data.cs_skipFewEn = $('skipFewEn').checked;
+  data.cs_iconStyle = $('stealthIcon').checked ? 'stealth' : 'robot';
   await chrome.storage.local.set(data);
 }
 for (const f of FIELDS) $(f).addEventListener('change', saveSettings);
 $('translateOn').addEventListener('change', saveSettings);
 $('recEnabled').addEventListener('change', saveSettings);
 $('skipFewEn').addEventListener('change', saveSettings);
+$('stealthIcon').addEventListener('change', saveSettings);   // 已開啟的面板會即時切換
 
 // 麥克風開關：勾選時若尚未授權，開授權分頁完成一次授權（移植自參考版）
 $('micEnabled').addEventListener('change', async () => {
@@ -63,7 +65,8 @@ async function ensureContent() {
 
 async function init() {
   $('ver').textContent = 'v' + chrome.runtime.getManifest().version;
-  const saved = await chrome.storage.local.get([...FIELDS, 'cs_translate', 'recEnabled', 'micEnabled', 'cs_skipFewEn']);
+  const saved = await chrome.storage.local.get([...FIELDS, 'cs_translate', 'recEnabled', 'micEnabled', 'cs_skipFewEn', 'cs_iconStyle']);
+  $('stealthIcon').checked = saved.cs_iconStyle !== 'robot';   // 預設隱密模式
   for (const f of FIELDS) if (saved[f]) $(f).value = saved[f];
   $('translateOn').checked = saved.cs_translate !== false;   // 預設開
   $('recEnabled').checked = !!saved.recEnabled;
