@@ -49,6 +49,7 @@
       <span id="cs-title"></span>
       <span id="cs-buttons">
         <span id="cs-rec-indicator" class="cs-rec-dot" hidden></span>
+        <button class="cs-btn" id="cs-flag-filter" title="只顯示標記「待修正」的句子（再按一次顯示全部）" hidden>⚑ 0</button>
         <button class="cs-btn" id="cs-save-src" title="下載原文逐字稿">原文</button>
         <button class="cs-btn" id="cs-save-zh" title="下載中文">中文</button>
         <button class="cs-btn" id="cs-save-md" title="下載 Markdown 會議記錄">MD</button>
@@ -241,6 +242,52 @@
 
   function entryById(id) { return entries.find((e) => e.id === id); }
 
+  // ================= 使用者修改（v1.9.0） =================
+  // 修改另外存在「修改表」（依條目 id），不直接改寫擷取到的原始字幕 e.x：
+  //   edits[id] = {
+  //     x?:       修改後的原文
+  //     zh?:      手動修改的譯文（優先於自動譯文）
+  //     tzh?:     依修改後原文自動重翻的譯文
+  //     locked?:  已鎖定 → 不再套用平台對這句的更新
+  //     pending?: 鎖定後平台又送來的新版本（可一鍵採用）
+  //     flag?:    標記「待修正」
+  //     s?:       單句講者名（用於平台沒給名字的句子）
+  //   }
+  // spkMap[原始講者名] = 改後名稱（同一位講者的所有句子一起改）
+  // 原始字幕永遠保留在 entries，可隨時還原；顯示與匯出時才合併。
+  let edits = {};
+  let spkMap = {};
+  let editingId = null;      // 正在編輯的條目 id
+  let spkEditing = null;     // 正在改名的講者 { finish }
+  let flagFilter = false;    // 只顯示待修正
+  let mdShowOrig = false;    // MD 匯出時標出修改前的原文
+  let hoverHistory = false;  // 滑鼠在歷史區上 → 暫停自動捲動，避免按鈕跑掉
+
+  const edOf = (e) => edits[e.id];
+  function dispX(e) {
+    const ed = edOf(e);
+    return ed && ed.x !== undefined ? ed.x : e.x;
+  }
+  function dispZh(e) {
+    const ed = edOf(e);
+    if (!ed) return e.zh;
+    if (ed.zh !== undefined) return ed.zh;
+    if (ed.x !== undefined) return ed.tzh !== undefined ? ed.tzh : (ed.tzhPending ? e.zh : '');
+    return e.zh;
+  }
+  function spk(e) {
+    const ed = edOf(e);
+    return (ed && ed.s) || spkMap[e.s] || e.s || '';
+  }
+  const isEdited = (e) => { const ed = edOf(e); return !!ed && (ed.x !== undefined || ed.zh !== undefined); };
+  // 修改表裡沒有任何有效欄位時移除，保持精簡
+  function pruneEdit(id) {
+    const ed = edits[id];
+    if (!ed) return;
+    for (const k of Object.keys(ed)) if (ed[k] === undefined || ed[k] === false) delete ed[k];
+    if (!Object.keys(ed).length) delete edits[id];
+  }
+
   // 譯文與原文相同時不重複顯示（匯出仍保留完整欄位）——移植自參考版
   function setTransLine(el, cls, text, src) {
     let div = el.querySelector('.' + cls);
@@ -253,24 +300,44 @@
     div.textContent = text;
   }
 
+  function actBtn(act, label, title) {
+    const b = document.createElement('button');
+    b.className = 'cs-act cs-act-' + act;
+    b.dataset.act = act;
+    b.textContent = label;
+    b.title = title;
+    return b;
+  }
+
   function renderEntry(e) {
-    const stick = nearBottom();
+    // 編輯中或滑鼠停在歷史區時不自動捲動
+    const stick = nearBottom() && editingId === null && !hoverHistory;
     // 進行中的條目放在底部固定的「即時區」，定稿後才移入歷史區——
     // 這樣逐字修正只在保留空間內變動，歷史列表不會跳動
     const parent = e.inHistory ? historyEl : interimEl;
     if (!e.el) {
       const el = document.createElement('div');
       el.className = 'cs-entry';
+      el.dataset.id = e.id;
       const head = document.createElement('div');
       head.className = 'cs-entry-head';
       const chip = document.createElement('span');
       chip.className = 'cs-chip';
-      chip.style.background = colorOf(e.s);
-      chip.textContent = e.s || '字幕';
+      chip.dataset.act = 'spk';
+      chip.title = '點一下修改講者名稱';
       const time = document.createElement('span');
       time.className = 'cs-time';
       time.textContent = timestamp(e.t);
-      head.append(chip, time);
+      const badges = document.createElement('span');
+      badges.className = 'cs-badges';
+      const actions = document.createElement('span');
+      actions.className = 'cs-actions';
+      actions.append(
+        actBtn('edit', '✎', '修改這句（Enter 儲存、Esc 取消）'),
+        actBtn('flag', '⚑', '標記／取消「待修正」'),
+        actBtn('revert', '↺', '還原成平台原始字幕')
+      );
+      head.append(chip, time, badges, actions);
       const src = document.createElement('div');
       src.className = 'cs-src';
       el.append(head, src);
@@ -279,17 +346,53 @@
     } else if (e.el.parentElement !== parent) {
       parent.appendChild(e.el);   // 定稿 → 從即時區搬進歷史區
     }
+    const ed = edOf(e);
+    e.el.classList.toggle('cs-flagged', !!(ed && ed.flag));
+    e.el.classList.toggle('cs-locked', !!(ed && ed.locked));
+
+    // 講者 chip（改名輸入框開著時不動它）
     const chipEl = e.el.querySelector('.cs-chip');
-    if (e.s && chipEl.textContent !== e.s) {
-      chipEl.textContent = e.s;
-      chipEl.style.background = colorOf(e.s);
+    if (!chipEl.querySelector('input')) {
+      const name = spk(e) || '字幕';
+      if (chipEl.textContent !== name) chipEl.textContent = name;
+      chipEl.style.background = colorOf(e.s || spk(e));   // 顏色跟著原始講者走，改名不變色
     }
+
+    // 狀態標記：已修改 / 待修正 / 平台有新版本
+    const badges = e.el.querySelector('.cs-badges');
+    badges.textContent = '';
+    if (isEdited(e)) {
+      const b = document.createElement('span');
+      b.className = 'cs-badge';
+      b.textContent = '已修改';
+      badges.append(b);
+    }
+    if (ed && ed.flag) {
+      const b = document.createElement('span');
+      b.className = 'cs-badge cs-badge-flag';
+      b.textContent = '⚑ 待修正';
+      badges.append(b);
+    }
+    if (ed && ed.pending) {
+      const b = document.createElement('button');
+      b.className = 'cs-badge-pending';
+      b.dataset.act = 'adopt';
+      b.textContent = '平台有新版本';
+      b.title = '平台更新為：「' + ed.pending + '」\n點一下改用平台版本（會捨棄你的修改）';
+      badges.append(b);
+    }
+
+    if (e.id === editingId) {   // 編輯中：不覆寫編輯框
+      return;
+    }
+    const x = dispX(e);
     const srcEl = e.el.querySelector('.cs-src');
-    if (srcEl.textContent !== e.x) srcEl.textContent = e.x;
+    if (srcEl.textContent !== x) srcEl.textContent = x;
     srcEl.classList.toggle('cs-live', translateOn && e.state !== 'done');
-    setTransLine(e.el, 'cs-zh', e.zh, e.x);
+    setTransLine(e.el, 'cs-zh', dispZh(e), x);
     const zhDiv = e.el.querySelector('.cs-zh');
-    if (zhDiv) zhDiv.classList.toggle('cs-tentative', e.state !== 'done');  // 暫定譯文半透明
+    // 暫定譯文半透明（含修改後重翻中）
+    if (zhDiv) zhDiv.classList.toggle('cs-tentative', e.state !== 'done' || !!(ed && ed.tzhPending));
     if (stick) historyEl.scrollTop = historyEl.scrollHeight;
   }
 
@@ -554,12 +657,29 @@
   // ================= 去重、聚合與定稿 =================
   function touch(e, text, speaker) {
     let changed = false;
-    if (e.x !== text) { e.x = text; changed = true; }
+    const ed = edOf(e);
+    const locked = !!(ed && ed.locked);
+    if (e.x !== text) {
+      if (locked) {
+        // 使用者改過的句子不再被平台覆蓋；平台的新版本只記下來，讓使用者決定要不要採用
+        const pending = text === dispX(e) ? undefined : text;
+        if (ed.pending !== pending) {
+          ed.pending = pending;
+          pruneEdit(e.id);
+          dirtyStore = true;
+          renderEntry(e);
+        }
+      } else {
+        e.x = text;
+        changed = true;
+      }
+    }
     if (speaker && e.s !== speaker) { e.s = speaker; changed = true; }
     if (changed) {
       e.lastChange = Date.now();
       // 定稿甚至翻譯後原文又長出來（長停頓後續講）→ 回到 live，之後重新定稿重翻
-      if (e.state !== 'live') e.state = 'live';
+      // （已鎖定的句子不重翻原始字幕）
+      if (e.state !== 'live' && !locked) e.state = 'live';
       dirtyStore = true;
       renderEntry(e);
     }
@@ -721,7 +841,13 @@
     if (!dirtyStore) return;
     dirtyStore = false;
     const slim = entries.map(({ id, t, s, x, zh, en, state }) => ({ id, t, s, x, zh, en, state }));
-    try { chrome.storage.local.set({ cs_entries: slim }); } catch {}
+    // 修改表不存「重翻中」這種暫時狀態
+    const slimEdits = {};
+    for (const [id, ed] of Object.entries(edits)) {
+      const { tzhPending, ...rest } = ed;
+      slimEdits[id] = rest;
+    }
+    try { chrome.storage.local.set({ cs_entries: slim, cs_edits: slimEdits, cs_spkMap: spkMap }); } catch {}
   }
 
   // ================= 擷取控制 =================
@@ -777,6 +903,11 @@
   }
 
   function resetAll() {
+    if (spkEditing) spkEditing.finish(false);
+    editingId = null;
+    edits = {};
+    spkMap = {};
+    flagFilter = false;
     entries = [];
     nextId = 1;
     nodeMap = new WeakMap();
@@ -786,6 +917,7 @@
     storeSnapshot();
     chrome.runtime.sendMessage({ type: 'AUDIO_RESET' }).catch(() => {});
     setStatus('');
+    updateFlagUI();
     updateFloatingIcon();  // 清除時更新浮動 icon
   }
 
@@ -804,13 +936,14 @@
     const p = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
   }
-  const line = (e, field) => `[${timestamp(e.t)}]${e.s ? ' ' + e.s + ':' : ''} ${e[field] || ''}`;
+  // 匯出一律使用修改後的文字與講者名
+  const line = (e, text) => `[${timestamp(e.t)}]${spk(e) ? ' ' + spk(e) + ':' : ''} ${text || ''}`;
 
   box.querySelector('#cs-save-src').addEventListener('click', () => {
-    download(`caption-source-${fileStamp()}.txt`, entries.map((e) => line(e, 'x')).join('\n'));
+    download(`caption-source-${fileStamp()}.txt`, entries.map((e) => line(e, dispX(e))).join('\n'));
   });
   box.querySelector('#cs-save-zh').addEventListener('click', () => {
-    download(`caption-zh-${fileStamp()}.txt`, entries.map((e) => line(e, 'zh')).join('\n'));
+    download(`caption-zh-${fileStamp()}.txt`, entries.map((e) => line(e, dispZh(e))).join('\n'));
   });
   box.querySelector('#cs-save-md').addEventListener('click', () => {
     const d = new Date();
@@ -819,8 +952,14 @@
       '',
       ...entries.map((e) => {
         // 譯文直接列出（不加「中：」前綴）；譯文為空或與原文相同時省略，避免重複
-        const zh = e.zh && e.zh.trim() !== e.x.trim() ? `\n> ${e.zh}` : '';
-        return `**[${timestamp(e.t)}] ${e.s || '字幕'}**\n> ${e.x}${zh}\n`;
+        const x = dispX(e);
+        const zhText = dispZh(e);
+        const zh = zhText && zhText.trim() !== x.trim() ? `\n> ${zhText}` : '';
+        const ed = edOf(e);
+        // 選用：以刪除線標出修改前的平台原文
+        const orig = mdShowOrig && ed && ed.x !== undefined && ed.x !== e.x ? `\n> ~~${e.x}~~` : '';
+        const flag = ed && ed.flag ? ' ⚑' : '';
+        return `**[${timestamp(e.t)}] ${spk(e) || '字幕'}**${flag}${orig}\n> ${x}${zh}\n`;
       })
     ].join('\n');
     download(`caption-notes-${fileStamp()}.md`, md);
@@ -839,6 +978,282 @@
       setStatus('⚠ 無法儲存錄音');
     }
   });
+
+  // ================= 即時修改字幕（v1.9.0） =================
+  function showPanel() {
+    box.style.display = '';
+    floatingIcon.style.display = 'none';
+    isMinimized = false;
+  }
+
+  // 可編輯的條目：已移入歷史區（停止變動）的句子；篩選待修正時只在待修正之間移動
+  function editableEntries() {
+    return entries.filter((e) => e.inHistory && (!flagFilter || (edOf(e) && edOf(e).flag)));
+  }
+
+  function autosize(ta) {
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  }
+
+  function openEditor(e) {
+    if (!e || !e.el) return;
+    if (!e.inHistory) { setStatus('這句還在變動中，定稿（移入上方）後才能修改'); return; }
+    if (editingId === e.id) return;
+    if (editingId !== null) closeEditor(true);
+    if (spkEditing) spkEditing.finish(true);
+    editingId = e.id;
+    const ed = document.createElement('div');
+    ed.className = 'cs-editor';
+    const taX = document.createElement('textarea');
+    taX.className = 'cs-edit-src';
+    taX.rows = 1;
+    taX.value = dispX(e);
+    const taZh = document.createElement('textarea');
+    taZh.className = 'cs-edit-zh';
+    taZh.rows = 1;
+    taZh.value = dispZh(e) || '';
+    taZh.placeholder = '譯文（不改＝依修改後的原文自動重翻）';
+    ed.dataset.origZh = taZh.value;
+    const hint = document.createElement('div');
+    hint.className = 'cs-edit-hint';
+    hint.textContent = 'Enter 儲存｜Esc 取消｜Tab 切換原文／譯文｜Alt+↑↓ 上一句／下一句';
+    ed.append(taX, taZh, hint);
+    e.el.classList.add('cs-editing');
+    e.el.append(ed);
+    for (const ta of [taX, taZh]) {
+      ta.addEventListener('input', () => autosize(ta));
+      autosize(ta);
+    }
+    e.el.scrollIntoView({ block: 'nearest' });
+    taX.focus();
+    taX.setSelectionRange(taX.value.length, taX.value.length);
+  }
+
+  function closeEditor(save) {
+    if (editingId === null) return;
+    const e = entryById(editingId);
+    editingId = null;
+    if (!e || !e.el) return;
+    const ed = e.el.querySelector('.cs-editor');
+    if (ed && save) {
+      applyEdit(e, ed.querySelector('.cs-edit-src').value, ed.querySelector('.cs-edit-zh').value, ed.dataset.origZh || '');
+    }
+    if (ed) ed.remove();
+    e.el.classList.remove('cs-editing');
+    renderEntry(e);
+  }
+
+  function applyEdit(e, rawX, rawZh, origZh) {
+    const x = norm(rawX);
+    const zh = norm(rawZh);
+    const srcChanged = !!x && x !== dispX(e);   // 原文清空視為沒改
+    const zhChanged = zh !== norm(origZh);
+    if (!srcChanged && !zhChanged) return;
+    const ed = edits[e.id] || (edits[e.id] = {});
+    ed.locked = true;          // 改過就鎖定，平台之後的更新只會變成「平台有新版本」
+    e.state = 'done';
+    e.inHistory = true;
+    if (srcChanged) {
+      ed.x = x === e.x ? undefined : x;   // 改回跟平台一樣 → 不必另存
+      ed.tzh = undefined;
+      if (ed.pending === x) ed.pending = undefined;
+    }
+    if (zhChanged) {
+      ed.zh = zh || undefined;            // 譯文清空 → 回到自動譯文
+    } else if (srcChanged) {
+      ed.zh = undefined;                  // 原文改了、譯文沒動 → 舊的手動譯文作廢，改為自動重翻
+    }
+    if (srcChanged && ed.x !== undefined && ed.zh === undefined) {
+      if (translateOn) translateEdited(e);
+      else ed.tzh = '';                   // 翻譯關閉：不顯示對不上的舊譯文
+    }
+    pruneEdit(e.id);
+    dirtyStore = true;
+  }
+
+  function translateEdited(e) {
+    const ed = edOf(e);
+    if (!ed || ed.x === undefined) return;
+    const text = ed.x;
+    ed.tzhPending = true;
+    chrome.runtime.sendMessage({ type: 'TRANSLATE', text })
+      .then((r) => {
+        const cur = edOf(e);
+        if (cur && cur.x === text) cur.tzh = (r && r.zh) || '';
+      })
+      .catch(() => {})
+      .finally(() => {
+        const cur = edOf(e);
+        if (cur) { delete cur.tzhPending; pruneEdit(e.id); }
+        dirtyStore = true;
+        renderEntry(e);
+      });
+  }
+
+  // 還原成平台字幕（若平台有新版本，直接採用新版本並重新翻譯）
+  function revertEntry(e) {
+    const ed = edOf(e);
+    if (!ed) return;
+    if (editingId === e.id) closeEditor(false);
+    const pending = ed.pending;
+    edits[e.id] = { flag: ed.flag, s: ed.s };
+    pruneEdit(e.id);
+    if (pending) e.x = pending;
+    if (translateOn && e.zhFor !== e.x) {
+      // 譯文對不上平台原文 → 重新排入翻譯
+      e.state = 'live';
+      e.sentText = '';
+      e.lastReq = 0;
+      e.lastChange = Date.now() - FINAL_IDLE_MS;
+      if (!capturing) requestTranslate(e);
+    }
+    dirtyStore = true;
+    renderEntry(e);
+  }
+
+  function toggleFlag(e) {
+    if (!e) return;
+    const ed = edits[e.id] || (edits[e.id] = {});
+    ed.flag = !ed.flag;
+    pruneEdit(e.id);
+    dirtyStore = true;
+    updateFlagUI();
+    renderEntry(e);
+  }
+
+  const flagBtn = box.querySelector('#cs-flag-filter');
+  function updateFlagUI() {
+    const n = entries.filter((e) => edOf(e) && edOf(e).flag).length;
+    if (!n) flagFilter = false;
+    flagBtn.hidden = !n;
+    flagBtn.textContent = '⚑ ' + n;
+    flagBtn.classList.toggle('cs-on', flagFilter);
+    historyEl.classList.toggle('cs-only-flagged', flagFilter);
+  }
+  flagBtn.addEventListener('click', () => {
+    flagFilter = !flagFilter;
+    updateFlagUI();
+    if (!flagFilter) historyEl.scrollTop = historyEl.scrollHeight;
+  });
+
+  // 講者改名：有名字的講者 → 同名的所有句子一起改；沒名字（「字幕」）的句子 → 只改這一句
+  function renameSpeaker(e) {
+    if (!e || !e.el) return;
+    const chip = e.el.querySelector('.cs-chip');
+    if (chip.querySelector('input')) return;
+    if (spkEditing) spkEditing.finish(true);
+    const input = document.createElement('input');
+    input.className = 'cs-spk-input';
+    input.value = spk(e);
+    input.placeholder = '講者名稱';
+    input.size = Math.max(6, input.value.length + 2);
+    chip.textContent = '';
+    chip.append(input);
+    let done = false;
+    const finish = (save) => {
+      if (done) return;
+      done = true;
+      spkEditing = null;
+      const v = norm(input.value);
+      input.remove();
+      if (save) {
+        if (e.s) {
+          if (!v || v === e.s) delete spkMap[e.s];
+          else spkMap[e.s] = v;
+        } else {
+          const ed = edits[e.id] || (edits[e.id] = {});
+          ed.s = v || undefined;
+          pruneEdit(e.id);
+        }
+        dirtyStore = true;
+        for (const x of entries) renderEntry(x);
+      } else {
+        renderEntry(e);
+      }
+    };
+    spkEditing = { finish, input };
+    input.addEventListener('blur', () => finish(true));
+    input.focus();
+    input.select();
+  }
+
+  function moveEditor(dir) {
+    const list = editableEntries();
+    const i = list.findIndex((x) => x.id === editingId);
+    const target = list[i + dir];
+    if (!target) return;
+    closeEditor(true);
+    openEditor(target);
+  }
+
+  function editLatest() {
+    showPanel();
+    const list = editableEntries();
+    if (!list.length) { setStatus('還沒有定稿的句子可以修改'); return; }
+    openEditor(list[list.length - 1]);
+  }
+
+  function flagLatest() {
+    const e = entries[entries.length - 1];
+    if (!e) { setStatus('還沒有句子可以標記'); return; }
+    toggleFlag(e);
+    const on = !!(edOf(e) && edOf(e).flag);
+    setStatus((on ? '已標記待修正：' : '已取消標記：') + dispX(e).slice(0, 30));
+  }
+
+  // 條目上的按鈕（事件委派）
+  box.addEventListener('click', (ev) => {
+    const actEl = ev.target.closest('[data-act]');
+    const entryEl = ev.target.closest('.cs-entry');
+    if (!actEl || !entryEl || !box.contains(entryEl)) return;
+    const e = entryById(Number(entryEl.dataset.id));
+    if (!e) return;
+    switch (actEl.dataset.act) {
+      case 'edit': openEditor(e); break;
+      case 'flag': toggleFlag(e); break;
+      case 'revert':
+      case 'adopt': revertEntry(e); break;
+      case 'spk': renameSpeaker(e); break;
+    }
+  });
+  // 在條目文字上按兩下也能修改
+  historyEl.addEventListener('dblclick', (ev) => {
+    if (ev.target.closest('.cs-editor, .cs-entry-head')) return;
+    const entryEl = ev.target.closest('.cs-entry');
+    if (entryEl) openEditor(entryById(Number(entryEl.dataset.id)));
+  });
+
+  // 滑鼠停在歷史區時暫停自動捲動；離開時若原本在底部就跟回最新
+  let wasAtBottom = true;
+  historyEl.addEventListener('mouseenter', () => { hoverHistory = true; wasAtBottom = nearBottom(); });
+  historyEl.addEventListener('mouseleave', () => {
+    hoverHistory = false;
+    if (wasAtBottom && editingId === null) historyEl.scrollTop = historyEl.scrollHeight;
+  });
+
+  // 鍵盤：在面板的輸入框打字時，攔下鍵盤事件不讓頁面收到，
+  // 避免觸發 Teams 等平台的快捷鍵（例如靜音、舉手）。
+  // 在 window 的 capture 階段處理：最早收到，Enter / Esc 等也在這裡直接處理。
+  function onKeyCapture(ev) {
+    const t = ev.target;
+    if (!(t instanceof Element) || !box.contains(t) || !t.matches('textarea, input')) return;
+    ev.stopPropagation();
+    if (ev.type !== 'keydown') return;
+    if (ev.isComposing || ev.keyCode === 229) return;   // 中文輸入法選字中：Enter 是確認選字，不是儲存
+    if (t.classList.contains('cs-spk-input')) {
+      if (ev.key === 'Enter') { ev.preventDefault(); spkEditing && spkEditing.finish(true); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); spkEditing && spkEditing.finish(false); }
+      return;
+    }
+    if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); closeEditor(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); closeEditor(false); }
+    else if (ev.altKey && (ev.key === 'ArrowUp' || ev.key === 'ArrowDown')) {
+      ev.preventDefault();
+      moveEditor(ev.key === 'ArrowUp' ? -1 : 1);
+    }
+  }
+  for (const type of ['keydown', 'keypress', 'keyup']) window.addEventListener(type, onKeyCapture, true);
 
   // ================= 手動框選字幕區域 =================
   let picking = false;
@@ -921,9 +1336,12 @@
     audioBtn.hidden = !on;
   }
 
-  chrome.storage.local.get(['cs_entries', 'cs_capturing', 'cs_translate', 'cs_recActive', 'cs_iconStyle', SEL_KEY], (res) => {
+  chrome.storage.local.get(['cs_entries', 'cs_capturing', 'cs_translate', 'cs_recActive', 'cs_iconStyle', 'cs_edits', 'cs_spkMap', 'cs_mdShowOrig', SEL_KEY], (res) => {
     pickedSelector = res[SEL_KEY] || null;
     applyIconStyle(res.cs_iconStyle);
+    mdShowOrig = !!res.cs_mdShowOrig;
+    edits = res.cs_edits && typeof res.cs_edits === 'object' ? res.cs_edits : {};
+    spkMap = res.cs_spkMap && typeof res.cs_spkMap === 'object' ? res.cs_spkMap : {};
     translateOn = res.cs_translate !== false;   // 預設開
     applyRecActive(!!res.cs_recActive);
     const saved = Array.isArray(res.cs_entries) ? res.cs_entries : [];
@@ -936,6 +1354,9 @@
       renderEntry(e);
     }
     nextId = entries.reduce((m, e) => Math.max(m, e.id || 0), 0) + 1;
+    // 丟掉對不到任何條目的修改（例如舊資料）
+    for (const id of Object.keys(edits)) if (!entryById(Number(id))) delete edits[id];
+    updateFlagUI();
     // 预设为关闭：用户需要手动点击开始按钮才启动
     // if (res.cs_capturing) startCapture();
   });
@@ -948,6 +1369,7 @@
     }
     if (changes.cs_recActive) applyRecActive(!!changes.cs_recActive.newValue);
     if (changes.cs_iconStyle) applyIconStyle(changes.cs_iconStyle.newValue);
+    if (changes.cs_mdShowOrig) mdShowOrig = !!changes.cs_mdShowOrig.newValue;
   });
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -979,6 +1401,14 @@
         box.style.transform = 'translateX(-50%)';
         floatingIcon.style.display = 'none';
         isMinimized = false;
+        sendResponse({ ok: true });
+        break;
+      case 'editLatest':   // 快捷鍵：修改最新一句
+        editLatest();
+        sendResponse({ ok: true });
+        break;
+      case 'flagLatest':   // 快捷鍵：標記最新一句待修正
+        flagLatest();
         sendResponse({ ok: true });
         break;
       case 'pick':

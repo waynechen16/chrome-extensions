@@ -290,3 +290,13 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     recTabId = null;
   }
 });
+
+// ================= 快捷鍵（v1.9.0） =================
+// 預設 Alt+Shift+E / Alt+Shift+F（Mac 為 Option+Shift），可在 chrome://extensions/shortcuts 修改。
+// 只轉給目前分頁；該分頁沒注入 content script 時忽略。
+chrome.commands.onCommand.addListener(async (command) => {
+  const cmd = { 'edit-latest': 'editLatest', 'flag-latest': 'flagLatest' }[command];
+  if (!cmd) return;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab) chrome.tabs.sendMessage(tab.id, { cmd }).catch(() => {});
+});
