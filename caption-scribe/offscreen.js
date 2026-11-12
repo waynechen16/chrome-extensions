@@ -45,14 +45,24 @@ function mp3FinishEncoder() {
   mp3.encoder = null;
 }
 
+// 回報錄音狀態給 background（寫入 storage，面板與 popup 依此顯示）
+//   recording：正在錄音；hasData：有可下載的錄音（錄音中也算）
+function reportState() {
+  const recording = !!mediaStream;
+  const hasData = recording || !!(mp3 && mp3.chunks.length);
+  chrome.runtime.sendMessage({ type: 'REC_STATE', recording, hasData }).catch(() => {});
+}
+
 // 「清除」：丟掉累積的錄音；若正在擷取中則立刻以新 encoder 續錄
 function audioReset() {
   pcmQueue = []; pcmQueued = 0;
-  if (!mp3) return;
-  const wasEncoding = !!mp3.encoder;
-  mp3.chunks = [];
-  mp3.encoder = null;
-  if (wasEncoding) mp3NewEncoder(mp3.rate);
+  if (mp3) {
+    const wasEncoding = !!mp3.encoder;
+    mp3.chunks = [];
+    mp3.encoder = null;
+    if (wasEncoding) mp3NewEncoder(mp3.rate);
+  }
+  reportState();
 }
 
 // 「音檔」存檔：收尾目前的流 → blob URL 交給 background 下載；
@@ -77,6 +87,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'OFFSCREEN_STOP') stop();
   if (msg.type === 'AUDIO_RESET') audioReset();
   if (msg.type === 'AUDIO_SAVE') sendResponse(audioSave());
+  if (msg.type === 'REC_QUERY') reportState();
   if (msg.type === 'AUDIO_DOWNLOAD_FALLBACK') {
     const a = document.createElement('a');
     a.href = msg.url;
@@ -93,8 +104,11 @@ async function start(streamId, settings) {
       video: false
     });
   } catch (e) {
+    reportState();
     return reportError('無法擷取分頁聲音：' + e.message);
   }
+  // 分頁關閉或擷取被瀏覽器中止 → 視同停止（已錄的資料保留，仍可下載）
+  for (const t of mediaStream.getAudioTracks()) t.addEventListener('ended', () => stop());
 
   // 麥克風混音（把「我自己的發言」也錄進去）
   // echoCancellation 會把喇叭放出的遠端聲音從麥克風訊號中消掉；戴耳機效果最好。
@@ -128,6 +142,7 @@ async function start(streamId, settings) {
   mp3NewEncoder(audioCtx.sampleRate);
 
   worklet.port.onmessage = (e) => feedPcm(e.data);
+  reportState();
 }
 
 function reportError(error) {
@@ -139,4 +154,5 @@ function stop() {
   if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
   if (audioCtx) { audioCtx.close(); audioCtx = null; }
   mp3FinishEncoder();  // 收尾 MP3 流；資料保留，停止後仍可按「音檔」匯出
+  reportState();
 }

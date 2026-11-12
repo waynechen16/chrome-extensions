@@ -53,7 +53,7 @@
         <button class="cs-btn" id="cs-save-src" title="下載原文逐字稿">原文</button>
         <button class="cs-btn" id="cs-save-zh" title="下載中文">中文</button>
         <button class="cs-btn" id="cs-save-md" title="下載 Markdown 會議記錄">MD</button>
-        <button class="cs-btn" id="cs-save-audio" title="下載錄音 (MP3)" hidden>音檔</button>
+        <button class="cs-btn cs-btn-dim" id="cs-save-audio" title="尚無錄音（在 popup 勾選「錄音」即可開始）">音檔</button>
         <button class="cs-btn" id="cs-clear" title="清除記錄">清除</button>
         <button class="cs-btn" id="cs-minimize" title="最小化">−</button>
         <button class="cs-btn" id="cs-close" title="關閉面板（記錄照常進行）">✕</button>
@@ -970,10 +970,16 @@
   });
 
   // 音檔（MP3）：向 background 要（background 轉問 offscreen → chrome.downloads）
+  // 按鈕一律顯示，隨時可存檔；沒有錄音資料時變淡並提示怎麼開始錄音
   audioBtn.addEventListener('click', async () => {
+    if (!recHasData) {
+      setStatus('尚無錄音資料：點外掛圖示，勾選「錄音」即可開始錄音（擷取中勾選會立即開始）');
+      return;
+    }
     try {
       const r = await chrome.runtime.sendMessage({ type: 'SAVE_AUDIO' });
       if (!r?.ok) setStatus('⚠ ' + (r?.error || '無法儲存錄音'));
+      else setStatus(recRecording ? '已下載目前為止的錄音，錄音繼續中' : '已下載錄音');
     } catch {
       setStatus('⚠ 無法儲存錄音');
     }
@@ -1332,18 +1338,26 @@
   }
 
   // ================= 初始化與訊息 =================
-  function applyRecActive(on) {
-    audioBtn.hidden = !on;
+  let recHasData = false;
+  let recRecording = false;
+  function applyRecState() {
+    audioBtn.classList.toggle('cs-btn-dim', !recHasData);
+    audioBtn.classList.toggle('cs-btn-rec', recRecording);
+    audioBtn.title = recRecording
+      ? '錄音中：下載目前為止的錄音 (MP3)，錄音會繼續'
+      : recHasData ? '下載錄音 (MP3)' : '尚無錄音（在 popup 勾選「錄音」即可開始）';
   }
 
-  chrome.storage.local.get(['cs_entries', 'cs_capturing', 'cs_translate', 'cs_recActive', 'cs_iconStyle', 'cs_edits', 'cs_spkMap', 'cs_mdShowOrig', SEL_KEY], (res) => {
+  chrome.storage.local.get(['cs_entries', 'cs_capturing', 'cs_translate', 'cs_recActive', 'cs_recording', 'cs_iconStyle', 'cs_edits', 'cs_spkMap', 'cs_mdShowOrig', SEL_KEY], (res) => {
     pickedSelector = res[SEL_KEY] || null;
     applyIconStyle(res.cs_iconStyle);
     mdShowOrig = !!res.cs_mdShowOrig;
     edits = res.cs_edits && typeof res.cs_edits === 'object' ? res.cs_edits : {};
     spkMap = res.cs_spkMap && typeof res.cs_spkMap === 'object' ? res.cs_spkMap : {};
     translateOn = res.cs_translate !== false;   // 預設開
-    applyRecActive(!!res.cs_recActive);
+    recHasData = !!res.cs_recActive;
+    recRecording = !!res.cs_recording;
+    applyRecState();
     const saved = Array.isArray(res.cs_entries) ? res.cs_entries : [];
     for (const s of saved) {
       const e = { ...s, sentText: '', el: null, inHistory: true };
@@ -1367,7 +1381,9 @@
       translateOn = changes.cs_translate.newValue !== false;
       if (capturing) titleEl.textContent = TITLE + (translateOn ? ' 記錄中…' : ' 記錄中（翻譯關閉）');
     }
-    if (changes.cs_recActive) applyRecActive(!!changes.cs_recActive.newValue);
+    if (changes.cs_recActive) recHasData = !!changes.cs_recActive.newValue;
+    if (changes.cs_recording) recRecording = !!changes.cs_recording.newValue;
+    if (changes.cs_recActive || changes.cs_recording) applyRecState();
     if (changes.cs_iconStyle) applyIconStyle(changes.cs_iconStyle.newValue);
     if (changes.cs_mdShowOrig) mdShowOrig = !!changes.cs_mdShowOrig.newValue;
   });

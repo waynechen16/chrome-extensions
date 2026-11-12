@@ -16,6 +16,9 @@
   #toggle.stop { background: #d9534f; color: #fff; }
   button.ghost { background: #eef2f7; color: #334; font-size: 12px; font-weight: 500; margin-top: 6px; padding: 7px; }
   button.ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.ghost:disabled:hover { background: #eef2f7; }
+  #recState { margin-top: 3px; }
   .row2 { display: flex; gap: 6px; }
   .row2 button { flex: 1; }
   #status { font-size: 11px; color: #888; margin-top: 8px; min-height: 14px; }
@@ -36,6 +39,8 @@
   快捷鍵 Alt+Shift+E 修改最新一句、Alt+Shift+F 標記待修正（Mac 為 Option+Shift，可在 chrome://extensions/shortcuts 修改）。</div>
 
   <button id="toggle" class="start">▶ 開始擷取這個分頁的字幕</button>
+  <button id="saveAudio" class="ghost">下載錄音（MP3）</button>
+  <div id="recState" class="hint"></div>
   <button id="showPanel" class="ghost">重新顯示字幕面板</button>
   <div class="row2">
     <button id="pick" class="ghost">框選字幕區域</button>

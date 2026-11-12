@@ -23,8 +23,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === 'AUDIO_RESET') {
-    // content「清除」→ 同步清掉錄音緩衝（offscreen 若存在會收到同一則廣播）
-    chrome.storage.local.set({ cs_recActive: false });
+    // content「清除」→ offscreen 收到同一則廣播後清掉緩衝，並以 REC_STATE 回報最新狀態。
+    // （v1.9.1 前這裡直接把 cs_recActive 設成 false，導致錄音中按「清除」後音檔按鈕消失）
+    return;
+  }
+
+  if (msg.type === 'REC_STATE') {
+    // offscreen 是錄音狀態的唯一來源
+    chrome.storage.local.set({ cs_recording: !!msg.recording, cs_recActive: !!msg.hasData });
     return;
   }
 });
@@ -226,6 +232,12 @@ async function handleRec(msg, sender, sendResponse) {
   switch (msg.type) {
     case 'START_REC': {
       try {
+        // 已在錄音（例如會議中重新開啟擷取、或在 popup 勾選錄音）→ 不重複擷取，避免
+        // tabCapture 對同一分頁重複取流失敗
+        const st = await chrome.storage.local.get(['cs_recording']);
+        if (st.cs_recording && await chrome.offscreen.hasDocument()) {
+          return sendResponse({ ok: true, already: true });
+        }
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (!tab) return sendResponse({ ok: false, error: '找不到目前分頁' });
         if (/^(chrome|edge|about|chrome-extension):/.test(tab.url || '')) {
@@ -240,7 +252,7 @@ async function handleRec(msg, sender, sendResponse) {
           streamId,
           settings: { micEnabled: !!s.micEnabled }
         });
-        await chrome.storage.local.set({ cs_recActive: true });
+        await chrome.storage.local.set({ cs_recording: true, cs_recActive: true });   // offscreen 稍後以 REC_STATE 校正
         sendResponse({ ok: true });
       } catch (e) {
         sendResponse({ ok: false, error: '錄音啟動失敗：' + e.message });
@@ -249,7 +261,8 @@ async function handleRec(msg, sender, sendResponse) {
     }
     case 'STOP_REC': {
       chrome.runtime.sendMessage({ type: 'OFFSCREEN_STOP' }).catch(() => {});
-      // cs_recActive 保持 true：錄音資料仍在，面板的「音檔」按鈕留著可下載
+      // 錄音資料保留（cs_recActive 不動），停止後仍可隨時下載
+      await chrome.storage.local.set({ cs_recording: false });
       sendResponse({ ok: true });
       break;
     }
@@ -290,6 +303,15 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     recTabId = null;
   }
 });
+
+// 瀏覽器重啟或外掛重新載入後，記憶體中的錄音已不存在 → 重設狀態，避免顯示「可下載」卻抓不到資料
+async function resetRecState() {
+  const has = await chrome.offscreen.hasDocument().catch(() => false);
+  if (has) chrome.runtime.sendMessage({ type: 'REC_QUERY' }).catch(() => {});
+  else await chrome.storage.local.set({ cs_recording: false, cs_recActive: false });
+}
+chrome.runtime.onStartup.addListener(resetRecState);
+chrome.runtime.onInstalled.addListener(resetRecState);
 
 // ================= 快捷鍵（v1.9.0） =================
 // 預設 Alt+Shift+E / Alt+Shift+F（Mac 為 Option+Shift），可在 chrome://extensions/shortcuts 修改。

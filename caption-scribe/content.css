@@ -403,3 +403,17 @@
 .cs-editor .cs-edit-zh { color: #ffd93d; font-weight: 600; border-color: rgba(255, 217, 61, 0.6); }
 .cs-editor .cs-edit-zh::placeholder { color: rgba(255, 217, 61, 0.45); font-weight: 400; }
 .cs-edit-hint { font-size: 10px; color: #aaa; margin-top: 3px; }
+
+/* ===== 音檔按鈕（v1.9.1）：一律顯示，隨時可存檔 ===== */
+.cs-btn.cs-btn-dim { opacity: 0.45; }
+/* 錄音中：按鈕前加一個小紅點 */
+.cs-btn.cs-btn-rec::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: #ff4d4f;
+  vertical-align: 1px;
+}

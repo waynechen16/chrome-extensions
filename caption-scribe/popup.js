@@ -21,7 +21,18 @@ async function saveSettings() {
 }
 for (const f of FIELDS) $(f).addEventListener('change', saveSettings);
 $('translateOn').addEventListener('change', saveSettings);
-$('recEnabled').addEventListener('change', saveSettings);
+// 錄音開關：擷取中勾選 → 立即開始錄音；取消勾選 → 停止錄音（已錄的資料保留，仍可下載）
+$('recEnabled').addEventListener('change', async () => {
+  await saveSettings();
+  if (!capturing) return;
+  if ($('recEnabled').checked) {
+    const r = await chrome.runtime.sendMessage({ type: 'START_REC' }).catch(() => null);
+    status.textContent = r?.ok ? '已開始錄音' : `錄音失敗：${r?.error || '未知錯誤'}`;
+  } else {
+    await chrome.runtime.sendMessage({ type: 'STOP_REC' }).catch(() => {});
+    status.textContent = '已停止錄音（已錄的部分仍可下載）';
+  }
+});
 $('skipFewEn').addEventListener('change', saveSettings);
 $('stealthIcon').addEventListener('change', saveSettings);   // 已開啟的面板會即時切換
 $('mdShowOrig').addEventListener('change', saveSettings);
@@ -37,7 +48,14 @@ $('micEnabled').addEventListener('change', async () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('mic-permission.html') });
     status.textContent = '請在新分頁完成麥克風授權後再開始擷取';
   } else if (capturing) {
-    status.textContent = '麥克風設定將在下次開始時生效';
+    const { cs_recording } = await chrome.storage.local.get(['cs_recording']);
+    if (!cs_recording) {
+      // 擷取中但還沒錄音 → 連同麥克風立即開始錄音
+      const r = await chrome.runtime.sendMessage({ type: 'START_REC' }).catch(() => null);
+      status.textContent = r?.ok ? '已開始錄音（含麥克風）' : `錄音失敗：${r?.error || '未知錯誤'}`;
+    } else {
+      status.textContent = '錄音中：取消再勾選「錄音」後，麥克風設定才會生效（已錄的部分會保留）';
+    }
   }
 });
 
@@ -65,7 +83,28 @@ async function ensureContent() {
   return null;
 }
 
+// 錄音狀態（由 offscreen 回報、background 寫入 storage）
+function showRecState(s) {
+  const el = $('recState');
+  if (s.cs_recording) el.textContent = '● 錄音中，可隨時下載目前為止的錄音';
+  else if (s.cs_recActive) el.textContent = '錄音已停止，可下載';
+  else el.textContent = '尚無錄音';
+  $('saveAudio').disabled = !s.cs_recActive;
+}
+chrome.storage.onChanged.addListener(async (changes, area) => {
+  if (area === 'local' && (changes.cs_recording || changes.cs_recActive)) {
+    showRecState(await chrome.storage.local.get(['cs_recording', 'cs_recActive']));
+  }
+});
+
+// 下載錄音：不需要字幕面板，分頁已關閉或會議頁已離開也能下載
+$('saveAudio').addEventListener('click', async () => {
+  const r = await chrome.runtime.sendMessage({ type: 'SAVE_AUDIO' }).catch(() => null);
+  status.textContent = r?.ok ? '已下載錄音' : `無法下載：${r?.error || '未知錯誤'}`;
+});
+
 async function init() {
+  showRecState(await chrome.storage.local.get(['cs_recording', 'cs_recActive']));
   $('ver').textContent = 'v' + chrome.runtime.getManifest().version;
   const saved = await chrome.storage.local.get([...FIELDS, 'cs_translate', 'recEnabled', 'micEnabled', 'cs_skipFewEn', 'cs_iconStyle', 'cs_mdShowOrig']);
   $('stealthIcon').checked = saved.cs_iconStyle !== 'robot';   // 預設隱密模式
@@ -111,13 +150,15 @@ toggle.addEventListener('click', async () => {
     if (s.recEnabled) {
       const r = await chrome.runtime.sendMessage({ type: 'START_REC' }).catch(() => null);
       note += r?.ok ? '（錄音中）' : `（錄音失敗：${r?.error || '未知錯誤'}）`;
+    } else {
+      note += '（未錄音，可隨時勾選「錄音」開始）';
     }
     status.textContent = note;
   } else {
     await send('stop');
     await chrome.runtime.sendMessage({ type: 'STOP_REC' }).catch(() => {});
     setCapturing(false);
-    status.textContent = '已停止（面板上仍可匯出文字與音檔）';
+    status.textContent = '已停止（面板或上方「下載錄音」仍可下載）';
   }
 });
 
